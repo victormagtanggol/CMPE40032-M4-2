@@ -58,7 +58,7 @@ function PlayState:enter(params)
     self.level = params.level
 
     -- spawn a board and place it toward the right
-    self.board = params.board or Board(VIRTUAL_WIDTH - 272, 16)
+    self.board = params.board or Board(VIRTUAL_WIDTH - 272, 16, self.level)
 
     -- grab score from params if it was passed
     self.score = params.score or 0
@@ -161,6 +161,25 @@ function PlayState:update(dt)
                 -- once the swap is finished, we can tween falling blocks as needed
                 :finish(function()
                     self:calculateMatches()
+                    if matchSwitch == false then
+                        tempX = newTile.gridX
+                        tempY = newTile.gridY
+                        newTile.gridX = self.highlightedTile.gridX
+                        newTile.gridY = self.highlightedTile.gridY
+                        self.highlightedTile.gridX =  tempX
+                        self.highlightedTile.gridY =  tempY
+        
+                        -- swap tiles in the tiles table
+                        self.board.tiles[self.highlightedTile.gridY][self.highlightedTile.gridX] = self.highlightedTile
+                        self.board.tiles[newTile.gridY][newTile.gridX] = newTile
+
+                        -- tween coordinates between the two so they swap
+                        Timer.tween(0.1, {
+                            [self.highlightedTile] = {x = newTile.x, y = newTile.y},
+                            [newTile] = {x = self.highlightedTile.x, y = self.highlightedTile.y}
+                        })
+                        self.highlightedTile = nil
+                    end
                 end)
             end
         end
@@ -176,18 +195,34 @@ end
     to the Board class.
 ]]
 function PlayState:calculateMatches()
-    self.highlightedTile = nil
 
     -- if we have any matches, remove them and tween the falling blocks that result
     local matches = self.board:calculateMatches()
 
     if matches then
+        self.highlightedTile = nil
+        matchSwitch = true
+
         gSounds['match']:stop()
         gSounds['match']:play()
 
         -- add score for each match
         for k, match in pairs(matches) do
-            self.score = self.score + #match * 50
+            if shinyActiveX == true then
+                self.score = self.score + #match * 50 * (difficultyVariety + 0.5)
+            elseif shinyActiveY == true then
+                self.score = self.score + #match * 50 * (difficultyVariety + 0.5)
+            else
+                self.score = self.score + #match * 50 * difficultyVariety
+            end
+
+            if #match == 3 then
+                self.timer = self.timer + 5
+            elseif #match == 4 then
+                self.timer = self.timer + 10
+            elseif #match == 5 then
+                self.timer = self.timer + 15
+            end
         end
 
         -- remove any tiles that matched from the board, making empty spaces
@@ -211,7 +246,18 @@ function PlayState:calculateMatches()
     -- if no matches, we can continue playing
     else
         self.canInput = true
+        matchSwitch = false
     end
+
+    if not self.board:matchesAvailable() then
+        self.printResetMessage = true
+        Timer.after(2.5, function()
+            self.printResetMessage = false
+        end
+        )
+        self.board:initializeTiles()
+    end
+
 end
 
 function PlayState:render()

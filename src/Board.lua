@@ -12,10 +12,12 @@
 
 Board = Class{}
 
-function Board:init(x, y)
+function Board:init(x, y, level)
     self.x = x
     self.y = y
     self.matches = {}
+
+    self.level = level
 
     self:initializeTiles()
 end
@@ -24,13 +26,26 @@ function Board:initializeTiles()
     self.tiles = {}
 
     for tileY = 1, 8 do
-
+        if self.level >= 1 and self.level <= 5 then
+            difficultyVariety = 1
+            difficultyColor = 5
+        elseif self.level >= 6 and self.level <= 10 then
+            difficultyVariety = math.random(1,2)
+            difficultyColor = 10
+        elseif self.level >= 11 and self.level <= 15 then
+            difficultyVariety = math.random(1,4)
+            difficultyColor = 14
+        elseif self.level > 15 then
+            difficultyVariety = math.random(1,6)
+            difficultyColor = 18
+        end
+        
         -- empty table that will serve as a new row
         table.insert(self.tiles, {})
 
         for tileX = 1, 8 do
             -- create a new tile at X,Y with a random color and variety
-            table.insert(self.tiles[tileY], Tile(tileX, tileY, math.random(18), math.random(6)))
+            table.insert(self.tiles[tileY], Tile(tileX, tileY, math.random(difficultyColor), difficultyVariety))
         end
     end
 
@@ -43,7 +58,7 @@ end
 
 --[[
     Goes left to right, top to bottom in the board, calculating matches by counting consecutive
-    tiles of the same color. Doesn't need to check the last tile in every row or column if the
+    tiles of the same color. Doesn't need to check the last tile in every row or column if the 
     last two haven't been a match.
 ]]
 function Board:calculateMatches()
@@ -54,6 +69,9 @@ function Board:calculateMatches()
 
     -- horizontal matches first
     for y = 1, 8 do
+        --if we got a shiny tile in our match
+        local shinyMatch = false
+
         local colorToMatch = self.tiles[y][1].color
 
         matchNum = 1
@@ -71,22 +89,38 @@ function Board:calculateMatches()
                 if matchNum >= 3 then
                     local match = {}
 
-                    -- go backwards from here by matchNum
                     for x2 = x - 1, x - matchNum, -1 do
                         -- add each tile to the match that's in that match
-                        table.insert(match, self.tiles[y][x2])
+                        if self.tiles[y][x2].shiny then
+                            shinyMatch = true
+                        end
+                    end
+
+                    --if tile in match is shiny add whole row to match table
+                    if shinyMatch then
+                        for rowX = 1, 8 do
+                            table.insert(match, self.tiles[y][rowX])
+                        end
+                        shinyActiveX = true
+                        shinyActiveY = false
+                    else
+                        -- go backwards from here by matchNum
+                        for x2 = x - 1, x - matchNum, -1 do
+                            -- add each tile to the match that's in that match
+                            table.insert(match, self.tiles[y][x2])
+                        end
                     end
 
                     -- add this match to our total matches table
                     table.insert(matches, match)
                 end
 
+                matchNum = 1
+                
                 -- don't need to check last two if they won't be in a match
                 if x >= 7 then
                     break
                 end
-
-                matchNum = 1
             end
         end
 
@@ -94,9 +128,24 @@ function Board:calculateMatches()
         if matchNum >= 3 then
             local match = {}
 
-            -- go backwards from end of last row by matchNum
             for x = 8, 8 - matchNum + 1, -1 do
-                table.insert(match, self.tiles[y][x])
+                if self.tiles[y][x].shiny then
+                    shinyMatch = true
+                end
+            end
+            
+            --if tile in match is shiny add whole row to match table
+            if shinyMatch then
+                for rowX = 1, 8 do
+                    table.insert(match, self.tiles[y][rowX])
+                end
+                shinyActiveX = true
+                shinyActiveY = false
+            else
+                -- go backwards from end of last row by matchNum
+                for x = 8, 8 - matchNum + 1, -1 do
+                    table.insert(match, self.tiles[y][x])
+                end
             end
 
             table.insert(matches, match)
@@ -105,6 +154,8 @@ function Board:calculateMatches()
 
     -- vertical matches
     for x = 1, 8 do
+        local shinyMatch = false
+
         local colorToMatch = self.tiles[1][x].color
 
         matchNum = 1
@@ -113,6 +164,7 @@ function Board:calculateMatches()
         for y = 2, 8 do
             if self.tiles[y][x].color == colorToMatch then
                 matchNum = matchNum + 1
+
             else
                 colorToMatch = self.tiles[y][x].color
 
@@ -120,7 +172,22 @@ function Board:calculateMatches()
                     local match = {}
 
                     for y2 = y - 1, y - matchNum, -1 do
-                        table.insert(match, self.tiles[y2][x])
+                        if self.tiles[y2][x].shiny then
+                            shinyMatch = true
+                        end
+                    end
+
+                    --if tile in match is shiny add whole column to match table
+                    if shinyMatch then
+                        for columnY = 1, 8 do
+                            table.insert(match, self.tiles[columnY][x])
+                        end
+                        shinyActiveX = false
+                        shinyActiveY = true
+                    else
+                        for y2 = y - 1, y - matchNum, -1 do
+                            table.insert(match, self.tiles[y2][x])
+                        end
                     end
 
                     table.insert(matches, match)
@@ -139,9 +206,24 @@ function Board:calculateMatches()
         if matchNum >= 3 then
             local match = {}
 
-            -- go backwards from end of last row by matchNum
             for y = 8, 8 - matchNum, -1 do
-                table.insert(match, self.tiles[y][x])
+                if self.tiles[y][x].shiny then
+                    shinyMatch = true
+                end
+            end
+            
+            --if tile in match is shiny add whole column to match table
+            if shinyMatch then
+                for columnY = 1, 8 do
+                    table.insert(match, self.tiles[columnY][x])
+                end
+                shinyActiveX = false
+                shinyActiveY = true
+            else
+                -- go backwards from end of last row by matchNum
+                for y = 8, 8 - matchNum, -1 do
+                    table.insert(match, self.tiles[y][x])
+                end
             end
 
             table.insert(matches, match)
@@ -186,7 +268,7 @@ function Board:getFallingTiles()
         while y >= 1 do
             -- if our last tile was a space...
             local tile = self.tiles[y][x]
-
+            
             if space then
                 -- if the current tile is *not* a space, bring this down to the lowest space
                 if tile then
@@ -202,14 +284,17 @@ function Board:getFallingTiles()
                         y = (tile.gridY - 1) * 32
                     }
 
-                    -- set space back to 0, set Y to spaceY so we start back from here again
+                    -- set Y to spaceY so we start back from here again
                     space = false
                     y = spaceY
+
+                    -- set this back to 0 so we know we don't have an active space
                     spaceY = 0
                 end
             elseif tile == nil then
                 space = true
-
+                
+                -- if we haven't assigned a space yet, set this to it
                 if spaceY == 0 then
                     spaceY = y
                 end
@@ -226,10 +311,13 @@ function Board:getFallingTiles()
 
             -- if the tile is nil, we need to add a new one
             if not tile then
-                local tile = Tile(x, y, math.random(18), math.random(6))
+
+                -- new tile with random color and variety
+                local tile = Tile(x, y, math.random(difficultyColor), difficultyVariety)
                 tile.y = -32
                 self.tiles[y][x] = tile
 
+                -- create a new tween to return for this tile to fall down
                 tweens[tile] = {
                     y = (tile.gridY - 1) * 32
                 }
@@ -251,3 +339,110 @@ function Board:render()
         end
     end
 end
+
+function Board:findMatches()
+    
+    local matchTable = {}
+
+    for x = 1, 8 do
+        for y = 1, 8 do
+            local x2 = x
+            local y2 = y
+
+            for y2 = y - 1, y + 1, 2 do
+                if y2 < 1 or y2 > 8 then
+                    break
+                end
+
+                local testBoard = Class.clone(self)
+                local tile = testBoard.tiles[y][x]
+                local newTile = testBoard.tiles[y2][x]
+
+                newTile = testBoard.tiles[newTile.gridY][newTile.gridX]
+
+                tempTile = testBoard.tiles[tile.gridY][tile.gridX]
+
+                testBoard.tiles[tile.gridY][tile.gridX] = newTile
+                testBoard.tiles[newTile.gridY][newTile.gridX] = tempTile
+
+                local matches = testBoard:calculateMatches()
+
+                if type(matches) == 'table' then
+                    table.insert(matchTable, {x..","..y, x..","..y2})
+                end
+            end
+
+            y2 = y
+
+            for x2 = x - 1, x + 1, 2 do
+                if x2 < 1 or x2 > 8  then
+                    break
+                end
+
+                local testBoard = Class.clone(self)
+                local tile = testBoard.tiles[y][x]
+                local newTile = testBoard.tiles[y][x2]
+
+                newTile = testBoard.tiles[newTile.gridY][newTile.gridX]
+
+                tempTile = testBoard.tiles[tile.gridY][tile.gridX]
+
+                testBoard.tiles[tile.gridY][tile.gridX] = newTile
+                testBoard.tiles[newTile.gridY][newTile.gridX] = tempTile
+
+                if type(matches) == 'table' then
+                    table.insert(matchTable, {x..","..y, x2..","..y})
+                end
+            end
+        end
+    end
+
+    return matchTable
+end
+
+function Board:matchesAvailable()
+    for y = 1, #self.tiles do
+        for x = 1, #self.tiles[1] do
+            -- if we have at least one tile on the left
+            if x > 1 then
+                -- swap tile left
+                local newTile = self.tiles[y][x-1]
+                self.tiles[y][x-1] = self.tiles[y][x]
+                self.tiles[y][x] = newTile
+                -- calculate matches
+                local matches = self:calculateMatches()
+                -- revert tiles to the original position
+                newTile = self.tiles[y][x-1]
+                self.tiles[y][x-1] = self.tiles[y][x]
+                self.tiles[y][x] = newTile
+                -- if there is at least one match
+                if matches ~= false then     
+                    return true
+                end
+            -- if we have at least one tile on the right
+            elseif x < 8 then
+                -- swap tile right
+                local newTile = self.tiles[y][x+1]
+                self.tiles[y][x+1] = self.tiles[y][x]
+                self.tiles[y][x] = newTile
+                -- calculate matches
+                local matches = self:calculateMatches()
+                -- revert tiles to the original position
+                newTile = self.tiles[y][x+1]
+                self.tiles[y][x+1] = self.tiles[y][x]
+                self.tiles[y][x] = newTile
+                -- if there is at least one match
+                if matches ~= false then
+                    return true
+                end
+            end
+        end
+    end
+
+    return false
+end
+
+function Board:check()
+    local matches = self:findMatches()
+end
+

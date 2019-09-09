@@ -35,6 +35,14 @@ WINDOW_HEIGHT = 720
 VIRTUAL_WIDTH = 512
 VIRTUAL_HEIGHT = 288
 
+difficultyColor = 1     --used in Board.lua
+difficultyVariety = 1   --used in Board.lua
+matchSwitch = false     --used in PlayState.lua
+shinyActiveX = false    --used in Board.lua
+shinyActiveY = false    --used in Board.lua
+
+SHINY_TILE = 0.98
+
 function love.load()
     -- initialize our nearest-neighbor filter
     love.graphics.setDefaultFilter('nearest', 'nearest')
